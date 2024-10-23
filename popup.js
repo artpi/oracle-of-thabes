@@ -22,6 +22,9 @@ async function summarizeTab(tab) {
 	const element = template.content.firstElementChild.cloneNode(true);
 	root.appendChild(element);
 	element.setAttribute('id', 'tab-' + tab.id );
+	if ( tab.id === chrome.tabs.activeTabId ) {
+		element.classList.add('active');
+	}
 
 	const title = tab.title.substring(0, 40);
 
@@ -44,18 +47,13 @@ async function summarizeTab(tab) {
 
 		for (let i = 0; i < text.length; i += 4000) {
 			const chunk = text.slice(i, i + 4000);
-			//console.log('chunk', chunk, element);
-			//summarizeChunk(chunk, element);
+			summarizeChunk(chunk, element);
 		}
 	} catch (error) {
 		console.error('Error summarizing tab:', error);
 	}
 	return element;
 }
-
-
-// Add event listener for new tab creation
-//
 
 const tabs = await chrome.tabs.query({
 	url: [
@@ -66,15 +64,23 @@ const tabs = await chrome.tabs.query({
 for (const tab of tabs) {
 	summarizeTab(tab);	
 }
+// When new tabs are created, we summarize them.
 chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
 	if ( changeInfo.status === 'complete' ) {
 		summarizeTab( tab );
 	}
 } );
 
+// When tabs get closed, we remove them from the list.
 chrome.tabs.onRemoved.addListener( function ( tabId ) {
 	const element = document.getElementById( 'tab-' + tabId );
 	if ( element ) {
 		element.remove();
 	}
 } );
+
+chrome.tabs.onActivated.addListener(function(activeInfo) {
+    console.log('Tab activated: ', activeInfo.tabId);
+	root.querySelectorAll('li').forEach( el => el.classList.remove('active') );
+	root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
+});
