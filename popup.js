@@ -1,11 +1,15 @@
 const template = document.getElementById('li_template');
 const root = document.querySelector('ul');
+let modelCapabilities = null;
 
 function summarizeChunk(chunk, element) {
 	const el = document.createElement('p');
-	el.innerText = "Summarizing...";
+	el.innerText = "Summarizing a piece of the article...";
 	element.querySelector('.summary').append( el );
-	return element;
+
+	if ( modelCapabilities.available === 'none' ) {
+		return;
+	}
 
 	ai.summarizer.create( {
 		type: "tl;dr",
@@ -55,15 +59,26 @@ async function summarizeTab(tab) {
 	return element;
 }
 
-const tabs = await chrome.tabs.query({
-	url: [
-	  'https://*/*',
-	]
-  });
-  
-for (const tab of tabs) {
-	summarizeTab(tab);	
-}
+ai.summarizer.capabilities().then( ( capabilities ) => {
+	if ( capabilities.available === 'none' ) {
+		document.getElementById('model_errors').classList.remove('hidden');
+	} else {
+		document.getElementById('model_errors').classList.add('hidden');
+	}
+
+	modelCapabilities = capabilities;
+	chrome.tabs.query({
+		url: [
+		  'https://*/*',
+		]
+	}).then( ( tabs ) => {
+		for (const tab of tabs) {
+			summarizeTab(tab);	
+		}
+	} );
+} );
+
+
 // When new tabs are created, we summarize them.
 chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
 	if ( changeInfo.status === 'complete' ) {
