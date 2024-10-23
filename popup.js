@@ -30,26 +30,34 @@ for (const tab of tabs) {
 	chrome.scripting.executeScript({
 		target: {tabId: tab.id},
 		func: async ( arg ) => {
-			return document.body.innerText.substring(0, 1000);
+			let smartContent = document.querySelector('main, .content, #content, .article')?.innerText;
+			if ( smartContent ) {
+				return smartContent;
+			}
+			return document.body.innerText;
 		},
 	}).then(( res ) => {
 		const text = res[0].result;
-		ai.summarizer.create( {
-			type: "tl;dr",
-			length: "short"
-		  } ).then( ( summarizer ) => {
-			const sum = summarizer.summarize( text );
-			sum.then( ( summary ) => {
-				element.querySelector('.pathname').textContent = summary;
-			} );
+
+		for (let i = 0; i < text.length; i += 4000) {
+			const chunk = text.slice(i, i + 4000);
+			ai.summarizer.create( {
+				type: "tl;dr",
+				length: "short"
+			} ).then( ( summarizer ) => {
+				const sum = summarizer.summarize( chunk );
+				sum.then( ( summary ) => {
+					const el = document.createElement('p');
+					el.textContent = summary;
+					element.querySelector('.summary').append( el );
+				} );
 		  } );
-		
+		}
 	}).catch((error) => {
 		console.error('Error executing script:', error);
 	});
 
-	const title = tab.title.split('|')[0].trim();
-	const pathname = new URL(tab.url).pathname.slice('/docs'.length);
+	const title = tab.title.substring(0, 40);
 
 	element.querySelector('.title').textContent = title;
 	//element.querySelector('.pathname').textContent = pathname;
@@ -63,11 +71,3 @@ for (const tab of tabs) {
 }
 document.querySelector('ul').append(...elements);
 
-const button = document.querySelector('button');
-button.addEventListener('click', async () => {
-	const tabIds = tabs.map(({ id }) => id);
-	if (tabIds.length) {
-		const group = await chrome.tabs.group({ tabIds });
-		await chrome.tabGroups.update(group, { title: 'DOCS' });
-	}
-});
