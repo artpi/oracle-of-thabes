@@ -42,3 +42,7 @@ p {
 li.active {
   background: red;
 }
+
+li.hidden {
+  display: none;
+}

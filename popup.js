@@ -84,3 +84,19 @@ chrome.tabs.onActivated.addListener(function(activeInfo) {
 	root.querySelectorAll('li').forEach( el => el.classList.remove('active') );
 	root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
 });
+
+document.getElementById('search').addEventListener('input', function(e) {
+	const search = e.target.value;
+	if ( search.length === 0 ) {
+		root.querySelectorAll('li').forEach( el => el.classList.remove('hidden') );
+		return;
+	} else {
+		root.querySelectorAll('li').forEach( el => {
+			if ( el.innerText.toLowerCase().includes(search.toLowerCase()) ) {
+				el.classList.remove('hidden');
+			} else {
+				el.classList.add('hidden');
+			}
+		});
+	}
+});
