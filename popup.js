@@ -1,8 +1,11 @@
 const template = document.getElementById('li_template');
 const root = document.querySelector('ul');
 let modelCapabilities = null;
+let summarizer = null;
+let work = Promise.resolve();
+const chunkSize = 4000;
 
-function summarizeChunk(chunk, element) {
+function summarizeChunk(summarizer,chunk, element) {
 	const el = document.createElement('p');
 	el.innerText = "Summarizing a piece of the article...";
 	element.querySelector('.summary').append( el );
@@ -11,18 +14,19 @@ function summarizeChunk(chunk, element) {
 		return;
 	}
 
-	ai.summarizer.create( {
-		type: "tl;dr",
-		length: "short"
-	} ).then( ( summarizer ) => {
-		const sum = summarizer.summarize( chunk );
-		sum.then( ( summary ) => {
+	work = work.then( () => summarizer.summarize( chunk )
+		.then( ( summary ) => {
 			el.textContent = summary;
-		} );
-  } );
+			return Promise.resolve( el );
+		} ).catch( ( error ) => {
+			el.textContent = error.message;
+			console.warn('Error summarizing chunk:', error, el);
+			return Promise.resolve( el );
+		} )
+	);
 }
 
-async function summarizeTab(tab) {
+async function summarizeTab( summarizer, tab) {
 	const element = template.content.firstElementChild.cloneNode(true);
 	root.appendChild(element);
 	element.setAttribute('id', 'tab-' + tab.id );
@@ -49,9 +53,9 @@ async function summarizeTab(tab) {
 
 		const text = result[0].result;
 
-		for (let i = 0; i < text.length; i += 4000) {
-			const chunk = text.slice(i, i + 4000);
-			summarizeChunk(chunk, element);
+		for (let i = 0; i < text.length; i += chunkSize) {
+			const chunk = text.slice(i, i + chunkSize);
+			summarizeChunk(summarizer, chunk, element);
 		}
 	} catch (error) {
 		console.error('Error summarizing tab:', error);
@@ -59,7 +63,8 @@ async function summarizeTab(tab) {
 	return element;
 }
 
-ai.summarizer.capabilities().then( ( capabilities ) => {
+ai.summarizer.capabilities()
+.then( ( capabilities ) => {
 	if ( capabilities.available === 'none' ) {
 		document.getElementById('model_errors').classList.remove('hidden');
 	} else {
@@ -67,22 +72,32 @@ ai.summarizer.capabilities().then( ( capabilities ) => {
 	}
 
 	modelCapabilities = capabilities;
-	chrome.tabs.query({
+	return Promise.resolve( capabilities );
+} )
+.then( () => ai.summarizer.create( {
+	type: "tl;dr",
+	length: "short"
+} ) )
+.then( ( sum ) => {
+	summarizer = sum;
+	console.log('summarizer', summarizer);
+	return chrome.tabs.query({
 		url: [
-		  'https://*/*',
+			'https://*/*',
 		]
-	}).then( ( tabs ) => {
-		for (const tab of tabs) {
-			summarizeTab(tab);	
-		}
-	} );
+	})
+} )
+.then( ( tabs ) => {
+	tabs.forEach( tab => {
+		summarizeTab(summarizer, tab);
+	});
 } );
 
 
 // When new tabs are created, we summarize them.
 chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
 	if ( changeInfo.status === 'complete' ) {
-		summarizeTab( tab );
+		summarizeTab( summarizer, tab );
 	}
 } );
 

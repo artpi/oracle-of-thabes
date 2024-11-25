@@ -5,12 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="./popup.css" />
+	<script src="./tailwind.js"></script>
+
   </head>
   <body>
     <template id="li_template">
-      <li>
+      <li class="shadow bg-white rounded-lg">
         <a>
-          <h3 class="title">Tab Title</h3>
+          <h3 class="title text-slate-900 font-medium">Tab Title</h3>
           <div class="summary"></div>
         </a>
       </li>
@@ -19,7 +21,7 @@
 		<p>There was an error loading the built-in model.</p>
 	</div>
 	<input type="text" id="search" placeholder="Search your tab summaries" />
-    <ul></ul>
+    <ul class="grid gap-6  p-4"></ul>
 
     <script src="./popup.js" type="module"></script>
   </body>

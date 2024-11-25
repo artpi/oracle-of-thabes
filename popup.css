@@ -24,7 +24,7 @@ ul {
   margin: 1rem 0;
 }
 
-li {
+/* li {
   padding: 0.25rem;
 }
 li:nth-child(odd) {
@@ -32,7 +32,7 @@ li:nth-child(odd) {
 }
 li:nth-child(even) {
   background: #ffffff;
-}
+} */
 
 h3,
 p {
@@ -40,7 +40,8 @@ p {
 }
 
 li.active {
-  background: red;
+  /* background: red; */
+  
 }
 
 li.hidden {
