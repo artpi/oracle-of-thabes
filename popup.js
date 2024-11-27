@@ -34,13 +34,26 @@ async function summarizeTab( summarizer, tab) {
 		element.classList.add('active');
 	}
 
-	const title = tab.title.substring(0, 40);
+	const title = tab.title;
 
 	element.querySelector('.title').textContent = title;
 	element.querySelector('a').addEventListener('click', async () => {
 		await chrome.tabs.update(tab.id, { active: true });
 		await chrome.windows.update(tab.windowId, { focused: true });
 	});
+
+	const previousSummarization = await chrome.storage.sync.get(tab.url);
+	console.log('previousSummarization', previousSummarization);
+	if ( previousSummarization[tab.url] && Array.isArray(previousSummarization[tab.url]) ) {
+		console.log( 'Found saved summary for ', tab.url );
+		previousSummarization[tab.url].forEach( s => {
+			const el = document.createElement('div');
+			el.classList.add('summary');
+			el.innerText = s;
+			element.appendChild( el );
+		});
+		return element;
+	}
 
 	try {
 		const result = await chrome.scripting.executeScript({
@@ -57,6 +70,14 @@ async function summarizeTab( summarizer, tab) {
 			const chunk = text.slice(i, i + chunkSize);
 			summarizeChunk(summarizer, chunk, element);
 		}
+		// All chunks are sumarized, so we can save the summarization.
+		work.then( () => {
+			chrome.storage.sync.set({
+				[tab.url]: Array.from(element.querySelectorAll('.summary')).map( p => p.innerText )
+			});
+			console.log('Summarization finshed and saved for', tab.url);
+			return Promise.resolve( element );
+		});
 	} catch (error) {
 		console.error('Error summarizing tab:', error);
 	}

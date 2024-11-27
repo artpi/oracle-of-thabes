@@ -1,21 +1,5 @@
-/* 
-Copyright 2022 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    https://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 body {
-  width: 20rem;
+  width: calc(100vw - 2rem);
 }
 
 ul {
@@ -24,26 +8,45 @@ ul {
   margin: 1rem 0;
 }
 
-/* li {
-  padding: 0.25rem;
+li {
+  padding: 0 0.5rem 0.5rem 0.5rem;
+  border: 1px solid #000;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  border-color: #ccc;
+  color: #333;
+  background: linear-gradient(to bottom, #ffffff, #f5f5f5);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease-in-out;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "San Francisco", system-ui, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 1rem;
 }
-li:nth-child(odd) {
-  background: #80808030;
-}
-li:nth-child(even) {
-  background: #ffffff;
-} */
 
-h3,
-p {
-  margin: 0;
+li h3 {
+	font-size: 1rem;
+	font-weight: 600;
+	margin: 0.5rem 0;
 }
 
-li.active {
-  /* background: red; */
-  
+li:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(to bottom, #ffffff, #e5e5e5);
+}
+
+li  div.summary {
+	padding: 0;
+	margin-top: 0.25rem;
+	font-size: 0.75rem;
 }
 
 li.hidden {
   display: none;
+}
+
+input#search {
+	width: calc(100% - 1rem);
+	padding: 0.5rem;
+	border-radius: 0.5rem;
+	border: 1px solid #ccc;
+	font-size: 1rem;
 }
