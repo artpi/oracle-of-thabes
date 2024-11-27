@@ -26,7 +26,7 @@ function summarizeChunk(summarizer,chunk, element) {
 	);
 }
 
-async function summarizeTab( summarizer, tab) {
+async function summarizeTab( tab) {
 	const element = template.content.firstElementChild.cloneNode(true);
 	root.appendChild(element);
 	element.setAttribute('id', 'tab-' + tab.id );
@@ -56,6 +56,12 @@ async function summarizeTab( summarizer, tab) {
 	}
 
 	try {
+		const summarizer = await ai.summarizer.create( {
+			type: "tl;dr",
+			length: "short",
+			sharedContext: `An article titled ${title}, published under ${tab.url}`,
+		} );
+
 		const result = await chrome.scripting.executeScript({
 			target: { tabId: tab.id },
 			func: () => {
@@ -99,18 +105,14 @@ ai.summarizer.capabilities()
 	type: "tl;dr",
 	length: "short"
 } ) )
-.then( ( sum ) => {
-	summarizer = sum;
-	console.log('summarizer', summarizer);
-	return chrome.tabs.query({
-		url: [
-			'https://*/*',
-		]
-	})
-} )
+.then( ( sum ) => chrome.tabs.query({
+	url: [
+		'https://*/*',
+	]
+}) )
 .then( ( tabs ) => {
 	tabs.forEach( tab => {
-		summarizeTab(summarizer, tab);
+		summarizeTab( tab);
 	});
 } );
 
@@ -118,7 +120,7 @@ ai.summarizer.capabilities()
 // When new tabs are created, we summarize them.
 chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
 	if ( changeInfo.status === 'complete' ) {
-		summarizeTab( summarizer, tab );
+		summarizeTab( tab );
 	}
 } );
 
