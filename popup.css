@@ -75,3 +75,49 @@ li.working {
 		background-position: 100% 50%;
 	}
 }
+
+#ask button {
+	display: none;
+    margin: 0.5rem 0;
+    border-radius: 0.5rem;
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid;
+}
+
+.hasanswer:before {
+    content: "";
+    width: 0px;
+    height: -10px;
+    position: absolute;
+    border-left: 12px solid transparent;
+    border-right: 24px solid #fff;
+    border-top: 10px solid #fff;
+    border-bottom: 20px solid transparent;
+    background-color: #f5f5f5;
+    left: 6px;
+    top: -36px;
+    position: relative;
+    font-size: 0;
+    margin: 0;
+  }
+.hasanswer {
+	margin-top: 40px;
+}
+.answer {
+	display: none;
+}
+
+.hasanswer .answer {
+	display: block;
+	border-radius: inherit;
+	background-color: #f5f5f5;
+	padding: 0.5rem;
+	margin-top: -1.21rem;
+	margin-left: -0.5rem;
+	margin-right: -0.5rem;
+	font-size: 0.75rem;
+	border-color: #ccc;
+	font-weight:bolder;
+	line-height: 1.25;
+}

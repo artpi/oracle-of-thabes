@@ -122,6 +122,13 @@ ai.summarizer.capabilities()
 
 // When new tabs are created, we summarize them.
 chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
+	if ( changeInfo.url ) {
+		// Navigated to new url.
+		const element = document.getElementById( 'tab-' + tabId );
+		if ( element ) {
+			element.remove();
+		}
+	}
 	if ( changeInfo.status === 'complete' ) {
 		summarizeTab( tab );
 	}
@@ -146,9 +153,19 @@ chrome.tabs.onActivated.addListener(function(activeInfo) {
 document.getElementById('search').addEventListener('input', function(e) {
 	const search = e.target.value;
 	if ( search.length === 0 ) {
-		root.querySelectorAll('li').forEach( el => { if( el.classList.contains('hidden') ) { el.classList.remove('hidden') } } );
+		// reset states
+		root.querySelectorAll('li').forEach( el => {
+			if( el.classList.contains('hidden') ) {
+				el.classList.remove('hidden')
+			}
+			if ( el.classList.contains('hasanswer') ) {
+				el.classList.remove('hasanswer');
+			}
+		} );
+		document.querySelector('#ask button').style.display = 'none';
 		return;
 	} else {
+		document.querySelector('#ask button').style.display = 'block';
 		root.querySelectorAll('li').forEach( el => {
 			if ( el.innerText.toLowerCase().includes(search.toLowerCase()) ) {
 				el.classList.remove('hidden');
@@ -158,3 +175,38 @@ document.getElementById('search').addEventListener('input', function(e) {
 		});
 	}
 });
+
+document.getElementById('ask').addEventListener('submit', function(e) {
+	const question = document.getElementById('search').value;
+	e.preventDefault();
+	ask( question );
+});
+
+async function ask( question ) {
+	console.log('Ask submitted', question);
+	const model = await ai.languageModel.create({
+		systemPrompt: `You are a helpful assistant that can answer questions about the tabs you have summarized.` + 
+		`Please start your response with a single line with YES if the contents of the tab is relevant to the question or NO if it is not.` +
+		`If the contents of the tab is relevant, please provide a concise answer to the question based on the contents of the tab in the following lines.`
+	} );
+
+	for ( const tab of root.querySelectorAll('li') ) {
+		const summary = tab.querySelector('.summary').innerText;
+		const title = tab.querySelector('.title').innerText;
+		const session = await model.clone();
+		try {
+			const response = await session.prompt( `The title of the tab is: "${title}"\n\nThe contents of the tab is: "${summary}"\n\nThe question is: "${question}"` );
+			if ( response.trim().startsWith('YES') ) {
+				tab.classList.remove('hidden');
+				const answer = response.trim().replace('YES', '').trim();
+				tab.querySelector('.answer').innerText = answer;
+				tab.classList.add('hasanswer');
+			}
+		} catch ( error ) {
+			console.error( 'Error asking question:', error );
+		} finally {
+			session.destroy();
+		}
+	}
+	model.destroy();
+}
