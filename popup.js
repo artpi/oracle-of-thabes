@@ -26,7 +26,7 @@ function summarizeChunk(summarizer,chunk, element) {
 	);
 }
 
-async function summarizeTab( tab) {
+async function summarizeTab( tab ) {
 	const element = template.content.firstElementChild.cloneNode(true);
 	root.appendChild(element);
 	element.setAttribute('id', 'tab-' + tab.id );
@@ -44,17 +44,13 @@ async function summarizeTab( tab) {
 
 	const previousSummarization = await chrome.storage.sync.get(tab.url);
 	console.log('previousSummarization', previousSummarization);
-	if ( previousSummarization[tab.url] && Array.isArray(previousSummarization[tab.url]) ) {
+	if ( previousSummarization[tab.url] ) {
 		console.log( 'Found saved summary for ', tab.url );
-		previousSummarization[tab.url].forEach( s => {
-			const el = document.createElement('div');
-			el.classList.add('summary');
-			el.innerText = s;
-			element.appendChild( el );
-		});
+		element.querySelector('.summary').innerHTML = previousSummarization[tab.url];
 		return element;
 	}
 
+	element.classList.add('working');
 	try {
 		const summarizer = await ai.summarizer.create( {
 			type: "tl;dr",
@@ -71,15 +67,26 @@ async function summarizeTab( tab) {
 		});
 
 		const text = result[0].result;
-
+		let chunks = 0;
 		for (let i = 0; i < text.length; i += chunkSize) {
 			const chunk = text.slice(i, i + chunkSize);
 			summarizeChunk(summarizer, chunk, element);
+			chunks++;
+		}
+		if ( chunks > 5 ) {
+			work = work.then( () => {
+				// We have a long list of chunks, we probably need to summarize them in their own right
+				const chunksToSummarize = element.querySelector('.summary').innerText;
+				element.querySelector('.summary').innerHTML = '<p>Summarizing summaries...</p>';
+				summarizeChunk(summarizer, chunksToSummarize, element);
+				return Promise.resolve( element );
+			} );
 		}
 		// All chunks are sumarized, so we can save the summarization.
 		work.then( () => {
+			element.classList.remove('working');
 			chrome.storage.sync.set({
-				[tab.url]: Array.from(element.querySelectorAll('.summary')).map( p => p.innerText )
+				[tab.url]: element.querySelector('.summary').innerHTML
 			});
 			console.log('Summarization finshed and saved for', tab.url);
 			return Promise.resolve( element );
@@ -101,10 +108,6 @@ ai.summarizer.capabilities()
 	modelCapabilities = capabilities;
 	return Promise.resolve( capabilities );
 } )
-.then( () => ai.summarizer.create( {
-	type: "tl;dr",
-	length: "short"
-} ) )
 .then( ( sum ) => chrome.tabs.query({
 	url: [
 		'https://*/*',
@@ -135,13 +138,15 @@ chrome.tabs.onRemoved.addListener( function ( tabId ) {
 chrome.tabs.onActivated.addListener(function(activeInfo) {
     console.log('Tab activated: ', activeInfo.tabId);
 	root.querySelectorAll('li').forEach( el => el.classList.remove('active') );
-	root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
+	if ( root.querySelector(`#tab-${activeInfo.tabId}`) ) {
+		root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
+	}
 });
 
 document.getElementById('search').addEventListener('input', function(e) {
 	const search = e.target.value;
 	if ( search.length === 0 ) {
-		root.querySelectorAll('li').forEach( el => el.classList.remove('hidden') );
+		root.querySelectorAll('li').forEach( el => { if( el.classList.contains('hidden') ) { el.classList.remove('hidden') } } );
 		return;
 	} else {
 		root.querySelectorAll('li').forEach( el => {

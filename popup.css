@@ -28,6 +28,11 @@ li h3 {
 	margin: 0.5rem 0;
 }
 
+li.working h3::before {
+	content: '⏲️';
+	margin-right: 0.5rem;
+}
+
 li:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   background: linear-gradient(to bottom, #ffffff, #e5e5e5);
@@ -51,4 +56,22 @@ input#search {
 	border-radius: 0.5rem;
 	border: 1px solid #ccc;
 	font-size: 1rem;
+}
+
+li.working {
+	background: linear-gradient(45deg, #ffffff, #cbcbcb);
+	background-size: 400% 400%;
+	animation: pulseBackground 2s infinite alternate;
+}
+
+@keyframes pulseBackground {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 50% 50%;
+	}
+	100% {
+		background-position: 100% 50%;
+	}
 }
