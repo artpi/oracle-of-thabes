@@ -31,6 +31,8 @@ li h3 {
 li:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   background: linear-gradient(to bottom, #ffffff, #e5e5e5);
+  transform: scale(1.02);
+  cursor: pointer;
 }
 
 li  div.summary {

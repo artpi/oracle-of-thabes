@@ -37,7 +37,7 @@ async function summarizeTab( summarizer, tab) {
 	const title = tab.title;
 
 	element.querySelector('.title').textContent = title;
-	element.querySelector('a').addEventListener('click', async () => {
+	element.addEventListener('click', async () => {
 		await chrome.tabs.update(tab.id, { active: true });
 		await chrome.windows.update(tab.windowId, { focused: true });
 	});
