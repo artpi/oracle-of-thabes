@@ -255,6 +255,10 @@ document.addEventListener('DOMContentLoaded', setup);
  */
 async function ask( question ) {
 	console.log('Ask submitted', question);
+	const buttonOriginalText = document.querySelector('#ask button').textContent;
+	document.querySelector('#ask button').disabled = true;
+	document.querySelector('#ask #search').disabled = true;
+
 	const model = await ai.languageModel.create({
 		systemPrompt: `You are a helpful assistant that can answer questions about the tabs you have summarized.` + 
 		`Please start your response with a single line with YES if the contents of the tab is relevant to the question or NO if it is not.` +
@@ -263,10 +267,12 @@ async function ask( question ) {
 
 	for ( const tab of root.querySelectorAll('li') ) {
 		const summary = tab.querySelector('.summary').innerText;
-		const title = tab.querySelector('.title').innerText;
+		const title = tab.querySelector('.title span').innerText;
 		const session = await model.clone();
+		document.querySelector('#ask button').textContent = `Asking ${title}...`;
 		try {
 			const response = await session.prompt( `The title of the tab is: "${title}"\n\nThe contents of the tab is: "${summary}"\n\nThe question is: "${question}"` );
+			console.log('Asked', question, title, response);
 			if ( response.trim().startsWith('YES') ) {
 				tab.classList.remove('hidden');
 				const answer = response.trim().replace('YES', '').trim();
@@ -274,10 +280,13 @@ async function ask( question ) {
 				tab.classList.add('hasanswer');
 			}
 		} catch ( error ) {
-			console.error( 'Error asking question:', error );
+			console.warn( 'Error asking question:', error );
 		} finally {
 			session.destroy();
 		}
 	}
 	model.destroy();
+	document.querySelector('#ask button').disabled = false;
+	document.querySelector('#ask #search').disabled = false;
+	document.querySelector('#ask button').textContent = buttonOriginalText;
 }
