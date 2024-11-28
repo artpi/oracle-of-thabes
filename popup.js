@@ -5,12 +5,20 @@ let summarizer = null;
 let work = Promise.resolve();
 const chunkSize = 4000;
 
+/**
+ * Summarizes a chunk of text and appends the result to the element.
+ * Creates a promise attached to `work`, so summarizations are created sequentially.
+ *
+ * @param {Object} summarizer - The summarizer session created by the ai.summarizer.create() function.
+ * @param {string} chunk - The chunk of text to summarize, typically 4000 characters or less.
+ * @param {Element} element - The HTML element to append the summary to.
+ */
 function summarizeChunk(summarizer,chunk, element) {
 	const el = document.createElement('p');
 	el.innerText = "Summarizing a piece of the article...";
 	element.querySelector('.summary').append( el );
 
-	if ( modelCapabilities.available === 'none' ) {
+	if ( ! modelCapabilities || modelCapabilities.available === 'none' ) {
 		return;
 	}
 
@@ -26,30 +34,50 @@ function summarizeChunk(summarizer,chunk, element) {
 	);
 }
 
+/**
+ * Triggers summarization for a tab.
+ *
+ * @param {Object} tab - The tab object.
+ * @returns {Promise<Element>} A promise that resolves to the created placeholder.
+ */
 async function summarizeTab( tab ) {
-	const element = template.content.firstElementChild.cloneNode(true);
-	root.appendChild(element);
-	element.setAttribute('id', 'tab-' + tab.id );
+	let element = null;
+	element = root.querySelector(`#tab-${tab.id}`);
+	if ( element ) {
+		element.querySelector('.summary').innerHTML = '';
+	} else {
+		element = template.content.firstElementChild.cloneNode(true);
+		root.appendChild(element);
+		element.setAttribute('id', 'tab-' + tab.id );
+			// When the tab is clicked, we activate it in the browser.
+		element.addEventListener('click', async () => {
+			await chrome.tabs.update(tab.id, { active: true });
+			await chrome.windows.update(tab.windowId, { focused: true });
+		});
+	}
+
 	if ( tab.id === chrome.tabs.activeTabId ) {
 		element.classList.add('active');
 	}
 
 	const title = tab.title;
+	element.querySelector('.title span').textContent = title;
+	if ( tab.favIconUrl ) {
+		element.querySelector('.title img').classList.remove('hidden');
+		element.querySelector('.title img').src = tab.favIconUrl;
+	} else {
+		element.querySelector('.title img').classList.add('hidden');
+	}
 
-	element.querySelector('.title').textContent = title;
-	element.addEventListener('click', async () => {
-		await chrome.tabs.update(tab.id, { active: true });
-		await chrome.windows.update(tab.windowId, { focused: true });
-	});
-
+	// Check if we have a previous summarization for this URL.
 	const previousSummarization = await chrome.storage.sync.get(tab.url);
-	console.log('previousSummarization', previousSummarization);
 	if ( previousSummarization[tab.url] ) {
-		console.log( 'Found saved summary for ', tab.url );
+		console.log( 'Found saved summary for ', tab.url, previousSummarization[tab.url] );
 		element.querySelector('.summary').innerHTML = previousSummarization[tab.url];
 		return element;
 	}
 
+	// We need to summarize the tab.
 	element.classList.add('working');
 	try {
 		const summarizer = await ai.summarizer.create( {
@@ -97,91 +125,134 @@ async function summarizeTab( tab ) {
 	return element;
 }
 
-ai.summarizer.capabilities()
-.then( ( capabilities ) => {
-	if ( capabilities.available === 'none' ) {
-		document.getElementById('model_errors').classList.remove('hidden');
+function checkCapabilities( capabilities ) {
+	if ( capabilities.available === 'none' || capabilities.available === 'no' ) {
+		return Promise.reject( capabilities );
+	} else if ( capabilities.available === 'readily' ) {
+		document.getElementById('container').classList.remove('hidden');
+		document.getElementById('setup_instructions').classList.add('hidden');
+		modelCapabilities = capabilities;
+		return Promise.resolve( capabilities );
+	} else if ( capabilities.available === 'after-download' ) {
+		// We will trigger the download of the summarizer model and listen for progress.
+		console.log('Downloading summarizer model');
+		document.getElementById('setup_instructions_ai_summarizer_downloading').classList.remove('hidden');
+		const summ = ai.summarizer.create({
+			monitor(m) {
+			  m.addEventListener('downloadprogress', (e) => {
+				console.log(`Downloaded ${e.loaded} of ${e.total} bytes.`);
+				const percent = Math.round( ( e.loaded / e.total ) * 100 );
+				document.getElementById('setup_instructions_ai_summarizer_downloading').querySelector('span').textContent = percent;
+				if ( percent === 100 ) {
+					return ai.summarizer.capabilities().then( checkCapabilities );
+				}
+			  });
+			}
+		});
+		console.log('Summarizer model created', summ);
 	} else {
-		document.getElementById('model_errors').classList.add('hidden');
+		console.error('Summarizer API returns unknown capabilities:', capabilities);
+		return Promise.reject( capabilities );
 	}
+}
 
-	modelCapabilities = capabilities;
-	return Promise.resolve( capabilities );
-} )
-.then( ( sum ) => chrome.tabs.query({
-	url: [
-		'https://*/*',
-	]
-}) )
-.then( ( tabs ) => {
-	tabs.forEach( tab => {
-		summarizeTab( tab);
-	});
-} );
+function setUpListeners() {
+	// When new tabs are created, we summarize them.
+	chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
+		if ( changeInfo.status === 'complete' ) {
+			// Get the domain from the tab URL
+			const url = new URL( tab.url );
+			console.log('Summarizing tab', tab.url);
+			if ( url.protocol !== 'http:' && url.protocol !== 'https:' ) {
+				// We do not want to summarize exotic protocols.
+				console.log('Exotic protocol, quitting summarization', url.protocol, url);
+				element.remove();
+				return;
+			}
+			summarizeTab( tab );
+		}
+	} );
 
-
-// When new tabs are created, we summarize them.
-chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
-	if ( changeInfo.url ) {
-		// Navigated to new url.
+	// When tabs get closed, we remove them from the list.
+	chrome.tabs.onRemoved.addListener( function ( tabId ) {
 		const element = document.getElementById( 'tab-' + tabId );
 		if ( element ) {
 			element.remove();
 		}
-	}
-	if ( changeInfo.status === 'complete' ) {
-		summarizeTab( tab );
-	}
-} );
+	} );
 
-// When tabs get closed, we remove them from the list.
-chrome.tabs.onRemoved.addListener( function ( tabId ) {
-	const element = document.getElementById( 'tab-' + tabId );
-	if ( element ) {
-		element.remove();
-	}
-} );
+	chrome.tabs.onActivated.addListener(function(activeInfo) {
+		console.log('Tab activated: ', activeInfo.tabId);
+		root.querySelectorAll('li').forEach( el => el.classList.remove('active') );
+		if ( root.querySelector(`#tab-${activeInfo.tabId}`) ) {
+			root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
+		}
+	});
 
-chrome.tabs.onActivated.addListener(function(activeInfo) {
-    console.log('Tab activated: ', activeInfo.tabId);
-	root.querySelectorAll('li').forEach( el => el.classList.remove('active') );
-	if ( root.querySelector(`#tab-${activeInfo.tabId}`) ) {
-		root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
-	}
-});
+	document.getElementById('search').addEventListener('input', function(e) {
+		const search = e.target.value;
+		if ( search.length === 0 ) {
+			// reset states
+			root.querySelectorAll('li').forEach( el => {
+				if( el.classList.contains('hidden') ) {
+					el.classList.remove('hidden')
+				}
+				if ( el.classList.contains('hasanswer') ) {
+					el.classList.remove('hasanswer');
+				}
+			} );
+			document.querySelector('#ask button').style.display = 'none';
+			return;
+		} else {
+			document.querySelector('#ask button').style.display = 'block';
+			root.querySelectorAll('li').forEach( el => {
+				if ( el.innerText.toLowerCase().includes(search.toLowerCase()) ) {
+					el.classList.remove('hidden');
+				} else {
+					el.classList.add('hidden');
+				}
+			});
+		}
+	});
 
-document.getElementById('search').addEventListener('input', function(e) {
-	const search = e.target.value;
-	if ( search.length === 0 ) {
-		// reset states
-		root.querySelectorAll('li').forEach( el => {
-			if( el.classList.contains('hidden') ) {
-				el.classList.remove('hidden')
-			}
-			if ( el.classList.contains('hasanswer') ) {
-				el.classList.remove('hasanswer');
-			}
-		} );
-		document.querySelector('#ask button').style.display = 'none';
+	document.getElementById('ask').addEventListener('submit', function(e) {
+		const question = document.getElementById('search').value;
+		e.preventDefault();
+		ask( question );
+	});
+	return Promise.resolve();
+}
+
+function setup() {
+	if ( ! ai || ! ai.summarizer ) {
+		console.log('No AI instance found', ai);
+		document.getElementById('setup_instructions').classList.remove('hidden');
+		document.getElementById('setup_instructions_ai_summarizer').classList.remove('hidden');
 		return;
-	} else {
-		document.querySelector('#ask button').style.display = 'block';
-		root.querySelectorAll('li').forEach( el => {
-			if ( el.innerText.toLowerCase().includes(search.toLowerCase()) ) {
-				el.classList.remove('hidden');
-			} else {
-				el.classList.add('hidden');
-			}
-		});
 	}
-});
+	ai.summarizer.capabilities()
+	.then( checkCapabilities )
+	.then( setUpListeners )
+	.then( ( sum ) => chrome.tabs.query({
+		url: [
+			'https://*/*',
+		]
+	}) )
+	.then( ( tabs ) => {
+		tabs.forEach( tab => {
+			summarizeTab( tab);
+		});
+	} );
 
-document.getElementById('ask').addEventListener('submit', function(e) {
-	const question = document.getElementById('search').value;
-	e.preventDefault();
-	ask( question );
-});
+}
 
+document.addEventListener('DOMContentLoaded', setup);
+
+/**
+ * Ask a question to the summarizations. It servers as a bit of a RAG.
+ * 
+ * @param {string} question 
+ */
 async function ask( question ) {
 	console.log('Ask submitted', question);
 	const model = await ai.languageModel.create({

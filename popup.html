@@ -11,19 +11,25 @@
     <template id="li_template">
       <li class="">
 		  <div class="answer"></div>
-          <h3 class="title">Tab Title</h3>
+          <h3 class="title"><img><span>Tab Title</span></h3>
           <div class="summary"></div>
       </li>
     </template>
 	<div id="model_errors">
 	</div>
-	<form id="ask">
-		<input type="text" id="search" placeholder="Search your tab summaries" />
-		<button type="submit">Press [Enter] to ask your tabs</button>
-	</form>
-    <ul class="grid">
-	</ul>
-
+	<div id="setup_instructions">
+		<p>The Oracle of Thabes uses local AI models available on your machine.</p>
+		<p id="setup_instructions_ai_summarizer" class="hidden">AI.summarizer API is not available in your Chrome installation. Please enable the 'Summarizer API for Gemini Nano' flag and restart chrome.<br/><br><b>chrome://flags/#summarization-api-for-gemini-nano</b></p>
+		<p id="setup_instructions_ai_summarizer_downloading" class="hidden">Downloading the summarizer model (<span</span>%)</p>
+	</div>
+	<div id="container" class="hidden">
+		<form id="ask">
+			<input type="text" id="search" placeholder="Search your tab summaries" />
+			<button type="submit">Press [Enter] to ask your tabs</button>
+		</form>
+		<ul class="grid">
+		</ul>
+	</div>
     <script src="./popup.js" type="module"></script>
   </body>
 </html>

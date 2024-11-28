@@ -29,6 +29,12 @@ li h3 {
 	margin: 0.5rem 0;
 }
 
+li h3 img {
+	width: 1rem;
+	height: 1rem;
+	margin-right: 0.5rem;
+}
+
 li.working h3::before {
 	content: '⏲️';
 	margin-right: 0.5rem;
@@ -47,7 +53,7 @@ li  div.summary {
 	font-size: 0.75rem;
 }
 
-li.hidden {
+.hidden {
   display: none;
 }
 
