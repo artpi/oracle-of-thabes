@@ -15,23 +15,24 @@ const chunkSize = 4000;
  */
 function summarizeChunk(summarizer,chunk, element) {
 	const el = document.createElement('p');
-	el.innerText = "Summarizing a piece of the article...";
 	element.querySelector('.summary').append( el );
 
 	if ( ! modelCapabilities || modelCapabilities.available === 'none' ) {
 		return;
 	}
 
-	work = work.then( () => summarizer.summarize( chunk )
-		.then( ( summary ) => {
-			el.textContent = summary;
-			return Promise.resolve( el );
-		} ).catch( ( error ) => {
-			el.textContent = error.message;
+	work = work.then( async () => {
+		try {
+			// We will use streaming for a nicer UX.
+			const summary = summarizer.summarizeStreaming( chunk );
+			for await ( const version of summary ) {
+				el.innerText = version;
+			}
+		} catch ( error ) {
 			console.warn('Error summarizing chunk:', error, el);
-			return Promise.resolve( el );
-		} )
-	);
+		}
+		return Promise.resolve( el );
+	} );
 }
 
 /**
@@ -89,8 +90,26 @@ async function summarizeTab( tab ) {
 		const result = await chrome.scripting.executeScript({
 			target: { tabId: tab.id },
 			func: () => {
-				let smartContent = document.querySelector('main, .content, #content, .article')?.innerText;
-				return smartContent || document.body.innerText;
+				// We will try to find the main content of the page.
+				const element = document.querySelector(
+					// Blog-specific common selectors
+					'.blog-post, .blog-entry, .post-body, .entry,' +
+					// Original selectors
+					'.article, .content, #content main,' +
+					// Common article wrappers
+					'article, [role="article"], .post-content, .entry-content, .post,' +
+					// Common main content areas
+					'main, .main, #main, .main-content, #main-content,' +
+					// Publisher-specific common selectors
+					'.story-body, .article-body, .article__body, .article-content, .article__content'
+				);
+				if ( element && element.innerText ) {
+					return element.innerText;
+				}
+				if ( document.body && document.body.innerText ) {
+					return document.body.innerText;
+				}
+				return '';
 			},
 		});
 
@@ -105,7 +124,7 @@ async function summarizeTab( tab ) {
 			work = work.then( () => {
 				// We have a long list of chunks, we probably need to summarize them in their own right
 				const chunksToSummarize = element.querySelector('.summary').innerText;
-				element.querySelector('.summary').innerHTML = '<p>Summarizing summaries...</p>';
+				element.querySelector('.summary').innerHTML = '';
 				summarizeChunk(summarizer, chunksToSummarize, element);
 				return Promise.resolve( element );
 			} );
