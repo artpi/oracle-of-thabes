@@ -128,3 +128,7 @@ li.working {
 	font-weight:bolder;
 	line-height: 1.25;
 }
+
+.active {
+	border: 2px solid;
+}

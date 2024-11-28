@@ -3,6 +3,7 @@ const root = document.querySelector('ul');
 let modelCapabilities = null;
 let summarizer = null;
 let work = Promise.resolve();
+let popActivatedTab = true;
 const chunkSize = 4000;
 
 /**
@@ -48,12 +49,15 @@ async function summarizeTab( tab ) {
 		element.querySelector('.summary').innerHTML = '';
 	} else {
 		element = template.content.firstElementChild.cloneNode(true);
-		root.appendChild(element);
+		root.prepend(element);
 		element.setAttribute('id', 'tab-' + tab.id );
 			// When the tab is clicked, we activate it in the browser.
 		element.addEventListener('click', async () => {
+			// We don't want to scroll to the activated tab when it is clicked from the sidebar
+			popActivatedTab = false;
 			await chrome.tabs.update(tab.id, { active: true });
 			await chrome.windows.update(tab.windowId, { focused: true });
+			popActivatedTab = true;
 		});
 	}
 
@@ -188,6 +192,10 @@ function checkCapabilities( capabilities ) {
  */
 function setUpListeners() {
 	// When new tabs are created, we summarize them.
+	chrome.tabs.onMoved.addListener( function (tabId, moveInfo) {
+		console.log('Tab moved', tabId, moveInfo);
+		sortTabs();
+	});
 	chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
 		if ( changeInfo.status === 'complete' ) {
 			// Get the domain from the tab URL
@@ -214,9 +222,16 @@ function setUpListeners() {
 	chrome.tabs.onActivated.addListener(function(activeInfo) {
 		console.log('Tab activated: ', activeInfo.tabId);
 		root.querySelectorAll('li').forEach( el => el.classList.remove('active') );
-		if ( root.querySelector(`#tab-${activeInfo.tabId}`) ) {
-			root.querySelector(`#tab-${activeInfo.tabId}`).classList.add('active');
+		const element = root.querySelector(`#tab-${activeInfo.tabId}`);
+		if ( ! element ) {
+			return;
 		}
+		element.classList.add('active');
+		if ( ! popActivatedTab ) {
+			return;
+		}
+		root.prepend( element );
+		window.scrollTo( 0, 0 );
 	});
 
 	document.getElementById('search').addEventListener('input', function(e) {
