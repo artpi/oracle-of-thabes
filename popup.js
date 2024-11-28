@@ -125,6 +125,12 @@ async function summarizeTab( tab ) {
 	return element;
 }
 
+/**
+ * Checks the capabilities of the summarizer model and resolves if model is ready.
+ * 
+ * @param {Object} capabilities 
+ * @returns {Promise<Object>}
+ */
 function checkCapabilities( capabilities ) {
 	if ( capabilities.available === 'none' || capabilities.available === 'no' ) {
 		return Promise.reject( capabilities );
@@ -156,6 +162,11 @@ function checkCapabilities( capabilities ) {
 	}
 }
 
+/**
+ * Sets up the listeners for the summarizer.
+ * 
+ * @returns {Promise<void>}
+ */
 function setUpListeners() {
 	// When new tabs are created, we summarize them.
 	chrome.tabs.onUpdated.addListener( function (tabId, changeInfo, tab) {
@@ -223,6 +234,9 @@ function setUpListeners() {
 	return Promise.resolve();
 }
 
+/**
+ * Sets up the summarizer.
+ */
 function setup() {
 	if ( ! ai || ! ai.summarizer ) {
 		console.log('No AI instance found', ai);
@@ -249,7 +263,7 @@ function setup() {
 document.addEventListener('DOMContentLoaded', setup);
 
 /**
- * Ask a question to the summarizations. It servers as a bit of a RAG.
+ * Ask a question to the summarizations. It serves as a bit of a RAG.
  * 
  * @param {string} question 
  */
