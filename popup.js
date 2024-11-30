@@ -168,17 +168,17 @@ function checkCapabilities( capabilities ) {
 		document.getElementById('setup_instructions_ai_summarizer_downloading').classList.remove('hidden');
 		const summ = ai.summarizer.create({
 			monitor(m) {
-			  m.addEventListener('downloadprogress', (e) => {
-				console.log(`Downloaded ${e.loaded} of ${e.total} bytes.`);
-				const percent = Math.round( ( e.loaded / e.total ) * 100 );
-				document.getElementById('setup_instructions_ai_summarizer_downloading').querySelector('span').textContent = percent;
-				if ( percent === 100 ) {
-					return ai.summarizer.capabilities().then( checkCapabilities );
-				}
-			  });
+				console.log('Summarizer model created', m);
+				m.addEventListener('downloadprogress', (e) => {
+					console.log(`Downloaded ${e.loaded} of ${e.total} bytes.`);
+					const percent = Math.round( ( e.loaded / e.total ) * 100 );
+					document.getElementById('setup_instructions_ai_summarizer_downloading').querySelector('span').textContent = percent;
+					if ( percent === 100 ) {
+						return ai.summarizer.capabilities().then( checkCapabilities );
+					}
+				});
 			}
 		});
-		console.log('Summarizer model created', summ);
 	} else {
 		console.error('Summarizer API returns unknown capabilities:', capabilities);
 		return Promise.reject( capabilities );
@@ -191,6 +191,9 @@ function checkCapabilities( capabilities ) {
  * @returns {Promise<void>}
  */
 function setUpListeners() {
+	if ( ! modelCapabilities ) {
+		return;
+	}
 	// When new tabs are created, we summarize them.
 	chrome.tabs.onMoved.addListener( function (tabId, moveInfo) {
 		console.log('Tab moved', tabId, moveInfo);
@@ -272,24 +275,38 @@ function setUpListeners() {
  * Sets up the summarizer.
  */
 function setup() {
-	if ( ! ai || ! ai.summarizer ) {
-		console.log('No AI instance found', ai);
+	if ( ! window.ai || ! window.ai.summarizer ) {
+		console.log('No AI instance found', window.ai);
 		document.getElementById('setup_instructions').classList.remove('hidden');
 		document.getElementById('setup_instructions_ai_summarizer').classList.remove('hidden');
 		return;
 	}
-	ai.summarizer.capabilities()
+
+	const caps = 
+	window.ai.summarizer.capabilities()
 	.then( checkCapabilities )
-	.then( setUpListeners )
+	.catch( ( capabilities ) => {
+		document.getElementById('setup_instructions_ai_summarizer_unavailable').classList.remove('hidden');
+		console.error('Summarizer capabilities check failed', capabilities);
+		Promise.reject();
+	} );
+
+	caps.then( setUpListeners )
 	.then( ( sum ) => chrome.tabs.query({
 		url: [
 			'https://*/*',
 		]
 	}) )
 	.then( ( tabs ) => {
+		if ( ! modelCapabilities ) {
+			return;
+		}
 		tabs.forEach( tab => {
 			summarizeTab( tab);
 		});
+	} )
+	.catch( ( error ) => {
+		console.error('Summarizer capabilities check failed', error);
 	} );
 
 }
